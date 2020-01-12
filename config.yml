@@ -1,3 +1,96 @@
+# 预设模板
+templates:
+# 剩余空间模板，当 path 对应的路径的剩余空间小于 space 规定的数值的时候停止 RSS 下载
+  freespace:
+    free_space:
+      path: /root/
+      space: 10240
+# qb 的模板，之后写 qb 就是指把种子推送到 qb 进行下载；下面 tr de rt 也是如此
+# 我脚本里账号密码都帮你写好了，除非你自己改了账号、密码或者端口，不然以下这些客户端设置不用修改
+  qb:
+    qbittorrent:
+      path: /home/SCRIPTUSERNAME/qbittorrent/download/
+      host: localhost
+      port: 2017
+      username: SCRIPTUSERNAME
+      password: SCRIPTPASSWORD
+  tr:
+    transmission:
+      path: /home/SCRIPTUSERNAME/transmission/download/
+      host: localhost
+      port: 9099
+      username: SCRIPTUSERNAME
+      password: SCRIPTPASSWORD
+  de:
+    deluge:
+      path: /home/SCRIPTUSERNAME/deluge/download/
+      host: localhost
+      port: 58846
+      username: SCRIPTUSERNAME
+      password: SCRIPTPASSWORD
+# 体积过滤模板，min 是符合条件的最小种子体积，max 是符合条件的最大种子体积，单位均为 MB
+# strict 默认是 yes，表示在无法确定大小的情况下就不下载，这里把它改成 no 了
+# 也就是说，这段 size 的意思是，只下载体积为 6000-666666 MB 的种子，其他不满足条件的种子不下载
+  size:
+    content_size:
+      min: 6000
+      max: 666666
+      strict: no
+
+# 任务
+tasks:
+# Web-HDSky 是任务名称，基本上随便起
+  Web-HDSky:
+  # RSS 链接请自己修改成你实际的链接
+    rss: https://hdsky.me/torrentrss.php
+    # 因为 HDSWEB 发单集的时候用的标题是一样的， 因此下过一次后
+    # 之后新发出来的单集由于标题一样，flexget 会当成是以前已经下过的种子
+    # 为了避免这个问题，对 seen 插件设定为只检查 url 是否一致
+    seen:
+      fields:
+        - url
+  # 正则表达式；标题带 HDSWEB 的种子就下载（accept，接受），不想下载的话就写拒绝（reject）
+    regexp:
+      accept:
+        - HDSWEB
+  # 调用上边的 de 模板
+    template: de
+  # 可以不使用模板的体积过滤，针对每个任务单独设置体积过滤
+    content_size:
+      min: 3000
+      max: 500000
+      strict: no
+  # 以下设定实现的效果：对这个任务加载到 deluge 的种子，自动添加 WEB-DL 的标签
+  # 自动限制上传速度到 100MB/s（防止超速 ban），下完后自动移动到 /mnt/HDSky/HDSWEB
+    deluge:
+      label: WEB-DL
+      # Limit upload speed to 100 MiB/s in case of being auto-banned
+      max_up_speed: 102400
+      move_completed_path: /mnt/HDSky/HDSWEB
+  ADC-AnimeBD-JPN:
+    rss: http://asiandvdclub.org/rss.xml
+    if:
+      - "'Anime' and 'AVC' in title": accept
+      - "'subs only' in title": reject
+      - "'Custom' in description": reject
+      # 这三个过滤条件组合起来就是，下载标题里带 Anime 和 AVC 且不含 subs only 的种子
+      # 并排除掉 描述页 里含有 Custom 字眼的种子
+      # 这也就约等于，RSS 日版动画蓝光碟（非日版、DIY 碟、DVD 都过滤掉）
+    # RSS ADC 需要 Cookies，这里我们用 headers 插件来加上 cookies
+    # 如何获取 Cookies 请看另外一篇教程
+    headers:
+      Cookie: "uid=12345; pass=abcdefg"
+    # 转换 RSS 链接，将原本形如 http://asiandvdclub.org/details.php?id=123456 的种子描述页面链接
+    # 替换为形如 http://asiandvdclub.org/download.php?id=123456 的种子下载链接
+    urlrewrite:
+      sitename:
+        regexp: 'http://asiandvdclub.org/details.php\?id=(?P<id>\d+)'
+        format: 'http://asiandvdclub.org/download.php?id=\g<id>'
+    qbittorrent:
+      label: ADC
+      # 刷 ADC 不用限速，我这里写这个限速模板只是想告诉你
+      # Flexget 支持添加种子到 qBittorrent 的时候自动设定单种限速
+      maxdownspeed: 30000
 web_server:
   port: 6566
   web_ui: yes
